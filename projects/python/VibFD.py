@@ -9,7 +9,7 @@ We use various boundary conditions.
 """
 import numpy as np
 import matplotlib.pyplot as plt
-import sympy as sp
+#import sympy as sp
 import scipy.sparse 
 
 t = sp.Symbol('t')
