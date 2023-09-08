@@ -10,6 +10,7 @@ We use various boundary conditions.
 import numpy as np
 import matplotlib.pyplot as plt
 import sympy as sp
+import scipy.sparse 
 
 t = sp.Symbol('t')
 
@@ -75,7 +76,7 @@ class VibSolver:
         ue = self.u_exact()
         return np.sqrt(self.dt*np.sum((ue-u)**2))
 
-    def convergence_rates(self, m=4, N0=32):
+    def convergence_rates(self, m=4, N0=32):# m = 4
         """
         Compute convergence rate
 
@@ -107,6 +108,7 @@ class VibSolver:
 
     def test_order(self, m=5, N0=100, tol=0.1):
         r, E, dt = self.convergence_rates(m, N0)
+        print(r, self.order)
         assert np.allclose(np.array(r), self.order, atol=tol)
 
 class VibHPL(VibSolver):
@@ -115,7 +117,7 @@ class VibHPL(VibSolver):
 
     Boundary conditions u(0)=I and u'(0)=0
     """
-    order = 2
+    order = 2 # setting self.order
 
     def __call__(self):
         u = np.zeros(self.Nt+1)
@@ -142,6 +144,15 @@ class VibFD2(VibSolver):
 
     def __call__(self):
         u = np.zeros(self.Nt+1)
+
+        C = (2 - self.w**2 * self.dt**2)
+        A = scipy.sparse.diags([np.ones(self.Nt), np.ones(self.Nt+1)*(-C), np.ones(self.Nt)], offsets=(-1, 0, 1), format='csr')
+        A[0, :2] = [1, 0]
+        A[-1, -2:] = [0, 1]
+        b = np.zeros_like(u)
+        b[0] = self.I
+        b[-1] = self.I 
+        u = scipy.sparse.linalg.spsolve(A, b)
         return u
 
 class VibFD3(VibSolver):
@@ -162,7 +173,16 @@ class VibFD3(VibSolver):
 
     def __call__(self):
         u = np.zeros(self.Nt+1)
+
+        C = (2 - self.w**2 * self.dt**2)
+        A = scipy.sparse.diags([np.ones(self.Nt), np.ones(self.Nt+1)*(-C), np.ones(self.Nt)], offsets=(-1, 0, 1), format='csr')
+        A[0, :2] = [1, 0]
+        A[-1, -2:] = [1, -C/2]
+        b = np.zeros_like(u)
+        b[0] = self.I
+        u = scipy.sparse.linalg.spsolve(A, b)
         return u
+
 
 class VibFD4(VibFD2):
     """
@@ -176,11 +196,32 @@ class VibFD4(VibFD2):
 
     def __call__(self):
         u = np.zeros(self.Nt+1)
+
+        C = 30 - 12 * self.dt**2 * self.w**2 
+        D = 15 - 12 * self.dt**2 * self.w**2 
+
+        C = np.full(self.Nt+1, C)
+        sixteens = np.full(self.Nt, 16)
+        ones = np.ones(self.Nt-1) 
+
+        A = scipy.sparse.diags([-ones, sixteens, -C, sixteens, -ones], offsets=(-2, -1, 0, 1, 2), format='csr')
+
+        A[1, :6] = [10, -D, -4, 14, -6, 1]
+        A[-2, -6:] = [1, -6, 14, -4, -D, 10]
+        A[0, :3] = [1, 0, 0]
+        A[-1, -3:] = [0, 0, 1]
+        
+        b = np.zeros_like(u)
+        b[0] = self.I
+        b[-1] = self.I 
+        
+        u = scipy.sparse.linalg.spsolve(A, b)
         return u
+
 
 def test_order():
     w = 0.35
-    VibHPL(8, 2*np.pi/w, w).test_order()
+    VibHPL(8, 2*np.pi/w, w).test_order() 
     VibFD2(8, 2*np.pi/w, w).test_order()
     VibFD3(8, 2*np.pi/w, w).test_order()
     VibFD4(8, 2*np.pi/w, w).test_order(N0=20)
