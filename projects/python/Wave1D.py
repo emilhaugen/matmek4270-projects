@@ -203,6 +203,6 @@ if __name__ == '__main__':
     #sol = Wave1D(100, cfl=1, L0=2, c0=1)
     #data = sol(100, bc=3, save_step=1, ic=1)
     #sol.animation(data)
-    test_pulse_bcs()
+    #test_pulse_bcs()
     #data = sol(200, bc=2, ic=0, save_step=100)
 
