@@ -137,23 +137,50 @@ class VibFD2(VibSolver):
     """
     order = 2
 
-    def __init__(self, Nt, T, w=0.35, I=1):
+    def __init__(self, Nt, T, w=0.35, I=1, f=None):
         VibSolver.__init__(self, Nt, T, w, I)
         T = T * w / np.pi
+
         assert T.is_integer() and T % 2 == 0
 
     def __call__(self):
         u = np.zeros(self.Nt+1)
 
         C = (2 - self.w**2 * self.dt**2)
-        A = scipy.sparse.diags([np.ones(self.Nt), np.ones(self.Nt+1)*(-C), np.ones(self.Nt)], offsets=(-1, 0, 1), format='csr')
+        A = scipy.sparse.diags([np.ones(self.Nt), np.full(self.Nt+1, -C), np.ones(self.Nt)], offsets=(-1, 0, 1), format='lil')
         A[0, :2] = [1, 0]
         A[-1, -2:] = [0, 1]
         b = np.zeros_like(u)
         b[0] = self.I
         b[-1] = self.I 
-        u = scipy.sparse.linalg.spsolve(A, b)
+        u = scipy.sparse.linalg.spsolve(A.tocsr(), b)
         return u
+
+
+class VibFD2_manufactured_solution(VibFD2):
+    
+    def __init__(self, ue, f, Nt, T, w=0.35, I=1):
+        VibSolver.__init__(self, Nt, T, w, I)
+        self.ue = ue # sympy function giving exact solution 
+        self.f = f # compute RHS of ODE over mesh points
+        self.boundary_conditions = self.u_exact()[::self.Nt]
+
+
+    def __call__(self):
+        u = np.zeros(self.Nt+1)
+
+        C = (2 - self.w**2 * self.dt**2)
+        A = scipy.sparse.diags([np.ones(self.Nt), np.full(self.Nt+1, -C), np.ones(self.Nt)], offsets=(-1, 0, 1), format='lil')
+        A[0, :2] = [1, 0]
+        A[-1, -2:] = [0, 1]
+        
+        b = self.f(self.t) * self.dt**2
+        b[0] = self.boundary_conditions[0]
+        b[-1] = self.boundary_conditions[-1]
+
+        u = scipy.sparse.linalg.spsolve(A.tocsr(), b)
+        return u
+
 
 class VibFD3(VibSolver):
     """
@@ -175,12 +202,12 @@ class VibFD3(VibSolver):
         u = np.zeros(self.Nt+1)
 
         C = (2 - self.w**2 * self.dt**2)
-        A = scipy.sparse.diags([np.ones(self.Nt), np.ones(self.Nt+1)*(-C), np.ones(self.Nt)], offsets=(-1, 0, 1), format='csr')
+        A = scipy.sparse.diags([np.ones(self.Nt), np.ones(self.Nt+1)*(-C), np.ones(self.Nt)], offsets=(-1, 0, 1), format='lil')
         A[0, :2] = [1, 0]
         A[-1, -2:] = [1, -C/2]
         b = np.zeros_like(u)
         b[0] = self.I
-        u = scipy.sparse.linalg.spsolve(A, b)
+        u = scipy.sparse.linalg.spsolve(A.tocsr(), b)
         return u
 
 
@@ -204,7 +231,7 @@ class VibFD4(VibFD2):
         sixteens = np.full(self.Nt, 16)
         ones = np.ones(self.Nt-1) 
 
-        A = scipy.sparse.diags([-ones, sixteens, -C, sixteens, -ones], offsets=(-2, -1, 0, 1, 2), format='csr')
+        A = scipy.sparse.diags([-ones, sixteens, -C, sixteens, -ones], offsets=(-2, -1, 0, 1, 2), format='lil')
 
         A[1, :6] = [10, -D, -4, 14, -6, 1]
         A[-2, -6:] = [1, -6, 14, -4, -D, 10]
@@ -215,16 +242,44 @@ class VibFD4(VibFD2):
         b[0] = self.I
         b[-1] = self.I 
         
-        u = scipy.sparse.linalg.spsolve(A, b)
+        u = scipy.sparse.linalg.spsolve(A.tocsr(), b)
         return u
+
+
+def test_manufactured_solution():
+    w = .5
+    T = 10
+    Nt = 20
+    
+    ue = lambda : t**4
+    f = lambda x : 12*x**2 + w**2 * x**4 
+    I = f(0)
+    S_t4 = VibFD2_manufactured_solution(ue, f, Nt=Nt, T=T, w=w, I=I)
+    S_t4.test_order()
+
+    ue = lambda : sp.exp(sp.sin(t))
+    f = lambda x : np.exp(np.sin(x)) * (np.cos(x)**2 - np.sin(x) + w**2)
+    I = f(0)
+    S_expsin = VibFD2_manufactured_solution(ue, f, Nt=Nt, T=T, w=w, I=I)
+    S_expsin.test_order()
+
+    plt.plot(S_expsin.t, S_expsin.u_exact(), label='exact', marker='o')
+    plt.plot(S_expsin.t, S_expsin(), label='approximation', marker='x')
+    plt.legend()
+    plt.show()
+
 
 
 def test_order():
     w = 0.35
+    I = 1
+    T = 2 *np.pi/w
+
     VibHPL(8, 2*np.pi/w, w).test_order() 
-    VibFD2(8, 2*np.pi/w, w).test_order()
+    VibFD2(Nt=8, T=2*np.pi/w, w=w, I=I).test_order()
     VibFD3(8, 2*np.pi/w, w).test_order()
     VibFD4(8, 2*np.pi/w, w).test_order(N0=20)
 
 if __name__ == '__main__':
     test_order()
+    test_manufactured_solution()
