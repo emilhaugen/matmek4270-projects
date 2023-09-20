@@ -125,22 +125,19 @@ class Wave1D:
         u0 = sp.lambdify(x, self.u0.subs({L: self.L, c: self.c, t: 0}))
 
         # First step. Set un and unm1
-        self.un[:] = u0(self.x)
-        plotdata = {0: self.un.copy()}
-        if ic == 0: # use u0 at time -dt such that un = u(x, t=0)
-            u0 = sp.lambdify(x, self.u0.subs({L: self.L, c: self.c, t: -dt}))
-            self.unm1[:] = u0(self.x) # t=-dt, un at t=0
-            n0 = 1
+        self.unm1[:] = u0(self.x) # unm1 = u(x, 0)
+        plotdata = {0: self.unm1.copy()}
+        if ic == 0: # use sympy function for un = u(x, dt)
+            u0 = sp.lambdify(x, self.u0.subs({L: self.L, c: self.c, t: dt}))
+            self.un[:] = u0(self.x)
 
-        else: # use u_t = 0 such that un = u(x, t=dt)
-            self.unm1[:] = self.un # t=0
-            self.un[:] = self.unm1 + 0.5*C**2* (D @ self.unm1) # t=dt
+        else: # use u_t = 0 for un = u(x, dt)
+            self.un[:] = self.unm1 + 0.5*C**2* (D @ self.unm1)
             self.apply_bcs(bc, self.un)
-            n0 = 2
-            if save_step == 1:
-                plotdata[1] = self.un.copy()
+        if save_step == 1:
+            plotdata[1] = self.un.copy()
 
-        for n in range(n0, Nt+1):
+        for n in range(2, Nt+1):
             self.unp1[:] = 2*self.un - self.unm1 + C**2 * (D @ self.un)
             self.apply_bcs(bc)
             self.unm1[:] = self.un
@@ -199,6 +196,8 @@ def test_pulse_bcs():
     data = sol(100, bc=3, ic=1, save_step=100)
     assert np.linalg.norm(data[0]-data[100]) < 1e-12
     
+
+
 
 if __name__ == '__main__':
     
