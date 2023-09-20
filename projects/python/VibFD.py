@@ -162,7 +162,7 @@ class VibFD2_manufactured_solution(VibFD2):
     def __init__(self, ue, f, Nt, T, w=0.35, I=1):
         VibSolver.__init__(self, Nt, T, w, I)
         self.ue = ue # sympy function giving exact solution 
-        self.f = f # compute RHS of ODE over mesh points
+        self.f = f 
         self.boundary_conditions = self.u_exact()[::self.Nt]
 
 
@@ -247,7 +247,7 @@ class VibFD4(VibFD2):
 
 
 def test_manufactured_solution():
-    w = .5
+    w = 3
     T = 10
     Nt = 20
     
@@ -269,17 +269,23 @@ def test_manufactured_solution():
     plt.show()
 
 
-
 def test_order():
-    w = 0.35
+    w = 1
     I = 1
-    T = 2 *np.pi/w
+    T = 2*np.pi/w # one period is 2*pi/w
+    Nt = 50
+    #VibHPL(8, 2*np.pi/w, w).test_order() 
+    #VibFD2(Nt=8, T=2*np.pi/w, w=w, I=I).test_order()
+    #VibFD3(8, 2*np.pi/w, w).test_order()
+    S = VibFD4(Nt=Nt, T=T, w=w, I=I)
 
-    VibHPL(8, 2*np.pi/w, w).test_order() 
-    VibFD2(Nt=8, T=2*np.pi/w, w=w, I=I).test_order()
-    VibFD3(8, 2*np.pi/w, w).test_order()
-    VibFD4(8, 2*np.pi/w, w).test_order(N0=20)
+    plt.plot(S.t, S.u_exact(), label='exact', marker='o')
+    plt.plot(S.t, S(), label='approximation', marker='x')
+    plt.legend()
+    plt.show()
+
+    S.test_order(N0=Nt) # fails with N0 >= 48
 
 if __name__ == '__main__':
     test_order()
-    test_manufactured_solution()
+    #test_manufactured_solution()
