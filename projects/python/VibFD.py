@@ -273,10 +273,10 @@ def test_order():
     w = 1
     I = 1
     T = 2*np.pi/w # one period is 2*pi/w
-    Nt = 50
-    #VibHPL(8, 2*np.pi/w, w).test_order() 
-    #VibFD2(Nt=8, T=2*np.pi/w, w=w, I=I).test_order()
-    #VibFD3(8, 2*np.pi/w, w).test_order()
+    Nt = 35
+    VibHPL(8, 2*np.pi/w, w).test_order() 
+    VibFD2(Nt=8, T=2*np.pi/w, w=w, I=I).test_order()
+    VibFD3(8, 2*np.pi/w, w).test_order()
     S = VibFD4(Nt=Nt, T=T, w=w, I=I)
 
     plt.plot(S.t, S.u_exact(), label='exact', marker='o')
